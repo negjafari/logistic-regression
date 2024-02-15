@@ -23,6 +23,8 @@ df1 = pd.read_csv(dataset_path1)
 dataset_path2 = '/content/drive/MyDrive/logistic regression dataset/ionosphere_modified.csv'
 df2 = pd.read_csv(dataset_path2)
 
+df1_original = pd.read_csv(dataset_path1)
+
 """# Dataset Analysis"""
 
 pd.set_option('display.max_columns', None)  # Set to None to display all columns
@@ -103,4 +105,202 @@ Encode categorical variables
 
 df1['Diagnosis'] = df1['Diagnosis'].map({'B': 1, 'M': 0})
 df2['Label'] = df2['Label'].map({'g': 1, 'b': 0})
+
+df1.describe()
+
+# select all features except the target
+features_bc = df1.columns[:-1]
+features_io = df2.columns[:-1]
+
+# Then apply the manual standardization as shown before
+for column in features_bc:
+    df1[column] = (df1[column] - df1[column].mean()) / df1[column].std()
+
+for column in features_io:
+    df2[column] = (df2[column] - df2[column].mean()) / df2[column].std()
+
+# Assuming 'feature1' is the feature you're interested in
+feature = features_bc[0]  # This should be adjusted to your feature of interest's actual name
+
+# Plot before standardization
+sns.histplot(df1_original[feature], color="blue", label="Before Standardization", kde=True)
+
+# Plot after standardization
+sns.histplot(df1[feature], color="red", label="After Standardization", kde=True)
+
+plt.legend()
+plt.title(f'Distribution of {feature} Before and After Standardization')
+plt.xlabel(f'{feature} Value')
+plt.ylabel('Frequency')
+plt.show()
+
+# Data for plotting
+data_to_plot = [df1_original[feature], df1[feature]]
+
+# Creating the box plot
+plt.boxplot(data_to_plot, patch_artist=True, labels=['Before', 'After'])
+
+plt.title(f'Box Plot of {feature} Before and After Standardization')
+plt.ylabel(f'{feature} Value')
+plt.xticks([1, 2], ['Before Standardization', 'After Standardization'])
+plt.show()
+
+def normalize_features(df, feature_names):
+    for feature in feature_names:
+        min_value = df[feature].min()
+        max_value = df[feature].max()
+        df[feature] = (df[feature] - min_value) / (max_value - min_value)
+
+# Assuming features_bc and features_io are lists of your feature column names
+normalize_features(df1, features_bc)
+normalize_features(df2, features_io)
+
+"""# Logistic Regression"""
+
+import numpy as np
+
+def train_test_split(X, y, test_size=0.2, random_state=None):
+    if random_state:
+        np.random.seed(random_state)
+
+    # Concatenate X and y to shuffle them together
+    full_dataset = np.concatenate((X, y.reshape(-1, 1)), axis=1)
+    np.random.shuffle(full_dataset)
+
+    # Calculate the number of training examples
+    train_size = int(full_dataset.shape[0] * (1 - test_size))
+
+    # Split the dataset
+    train, test = full_dataset[:train_size], full_dataset[train_size:]
+
+    # Split back into X and y
+    X_train = train[:, :-1]
+    y_train = train[:, -1]
+    X_test = test[:, :-1]
+    y_test = test[:, -1]
+
+    return X_train, X_test, y_train, y_test
+
+X = df1.drop('Diagnosis', axis=1).values
+y = df1['Diagnosis'].values
+
+# Now you can call the train_test_split function
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+print('X train shape : ', X_train.shape)
+print('Y train shape : ', y_train.shape)
+print('X test shape : ', X_test.shape)
+print('Y test shape : ', y_test.shape)
+
+class LogisticRegression:
+    def __init__(self, learning_rate=0.01, iterations=1000):
+        self.learning_rate = learning_rate
+        self.iterations = iterations
+        self.weights = None
+        self.bias = None
+
+    def _sigmoid(self, z):
+        return 1 / (1 + np.exp(-z))
+
+    def fit(self, X, y):
+        n_samples, n_features = X.shape
+        self.weights = np.zeros(n_features)
+        self.bias = 0
+
+        # Gradient Descent
+        for _ in range(self.iterations):
+            model = np.dot(X, self.weights) + self.bias
+            predictions = self._sigmoid(model)
+
+            # Compute gradients
+            dw = (1 / n_samples) * np.dot(X.T, (predictions - y))
+            db = (1 / n_samples) * np.sum(predictions - y)
+
+            # Update parameters
+            self.weights -= self.learning_rate * dw
+            self.bias -= self.learning_rate * db
+
+    def predict(self, X):
+        model = np.dot(X, self.weights) + self.bias
+        predictions = self._sigmoid(model)
+        predicted_classes = [1 if i > 0.5 else 0 for i in predictions]
+        return np.array(predicted_classes)
+
+# Example of instantiating and training the logistic regression model
+model = LogisticRegression(learning_rate=0.01, iterations=1000)
+model.fit(X_train, y_train)
+
+# Making predictions
+predictions = model.predict(X_test)
+
+def Accu_eval(y_true, y_pred):
+    """
+    Calculate the accuracy of the model.
+
+    Parameters:
+    - y_true: numpy.ndarray, the true labels.
+    - y_pred: numpy.ndarray, the predicted labels by the model.
+
+    Returns:
+    - accuracy: float, the accuracy score of the model.
+    """
+    correct_predictions = (y_true == y_pred).sum()
+    total_predictions = len(y_true)
+    accuracy = correct_predictions / total_predictions
+    return accuracy
+
+# Assuming y_test are your true labels and predictions are what your model predicted
+accuracy_score = Accu_eval(y_test, predictions)
+print(f"Model Accuracy: {accuracy_score*100:.2f}%")
+
+class KFoldCV:
+    def __init__(self, model, k=10):
+        self.model = model
+        self.k = k
+        self.scores = []
+
+    def split(self, X, y):
+        """Yield k equally sized splits of X and y using numpy arrays."""
+        fold_size = len(X) // self.k
+        indices = np.arange(len(X))
+        np.random.shuffle(indices)
+
+        for i in range(self.k):
+            start = i * fold_size
+            end = (i + 1) * fold_size if i != self.k - 1 else len(X)
+            test_indices = indices[start:end]
+            train_indices = np.concatenate([indices[:start], indices[end:]])
+
+            X_train, X_test = X[train_indices], X[test_indices]
+            y_train, y_test = y[train_indices], y[test_indices]
+            yield X_train, X_test, y_train, y_test
+
+    def fit_predict(self, X_train, X_test, y_train, y_test):
+        self.model.fit(X_train, y_train)
+        predictions = self.model.predict(X_test)
+        return predictions
+
+    def evaluate(self, y_true, y_pred):
+        correct_predictions = (y_true == y_pred).sum()
+        total_predictions = len(y_true)
+        return correct_predictions / total_predictions
+
+    def cross_validate(self, X, y):
+        for X_train, X_test, y_train, y_test in self.split(X, y):
+            y_pred = self.fit_predict(X_train, X_test, y_train, y_test)
+            score = self.evaluate(y_test, y_pred)
+            self.scores.append(score)
+        return np.mean(self.scores), np.std(self.scores)
+
+# Assuming LogisticRegression is your model class
+model = LogisticRegression(learning_rate=0.01, iterations=1000)
+
+X = df1.drop('Diagnosis', axis=1).values
+y = df1['Diagnosis'].values
+
+kf_cv = KFoldCV(model, k=10)
+average_score, score_std = kf_cv.cross_validate(X, y)
+
+print(f"Average Accuracy: {average_score*100:.2f}%")
+# print(f"Standard Deviation of Accuracy: {score_std*100:.2f}%")
 
