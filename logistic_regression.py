@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import seaborn as sns
+import time
 
 drive.mount('/content/drive')
 
@@ -23,28 +24,28 @@ df1 = pd.read_csv(dataset_path1)
 dataset_path2 = '/content/drive/MyDrive/logistic regression dataset/ionosphere_modified.csv'
 df2 = pd.read_csv(dataset_path2)
 
-df1_original = pd.read_csv(dataset_path1)
-
 """# Dataset Analysis"""
 
 pd.set_option('display.max_columns', None)  # Set to None to display all columns
 
-def analyzeDataset(df):
+def check_missing_values(df):
     missing_values = df.isnull().sum()
-    fig, ax = plt.subplots(figsize=(12, 6))
-    missing_values.plot.bar(ax=ax)
-    for i, val in enumerate(missing_values):
-        ax.text(i, val + 10, str(val), ha='center', fontweight='bold')
+    return missing_values
 
-    plt.show()
+missing_values_df1 = check_missing_values(df1)
+print("Missing values in each column:")
+print(missing_values_df1)
 
-analyzeDataset(df1)
-
-analyzeDataset(df2)
+missing_values_df2 = check_missing_values(df2)
+print("Missing values in each column:")
+print(missing_values_df2)
 
 df1.describe()
 
 df2.describe()
+
+df1 = df1.drop(columns=['ID'])
+df2 = df2.drop(columns=['Feature_2'])
 
 # Distribution of classes
 print(df1['Diagnosis'].value_counts())
@@ -60,34 +61,27 @@ sns.countplot(x='Label', data=df2)
 plt.title('Distribution of Classes in Ionosphere Dataset')
 plt.show()
 
-# Feature distributions in Breast Cancer dataset
-features_bc = df1.columns[1:]
-for feature in features_bc:
-    sns.histplot(df1[feature], kde=True)
-    plt.title(f'Distribution of {feature} - Breast Cancer')
-    plt.show()
+def feature_distribution(df, name):
+  features_io = df.columns[:-1]
+  for feature in features_io:
+      sns.histplot(df[feature], kde=True)
+      plt.title(f'Distribution of {feature} - {name}')
+      plt.show()
 
-# Feature distributions in Ionosphere dataset
-features_io = df2.columns[:]
-for feature in features_io:
-    sns.histplot(df2[feature], kde=True)
-    plt.title(f'Distribution of {feature} - Ionosphere')
-    plt.show()
+feature_distribution(df1, 'Breast Cancer')
 
-df1 = df1.drop(columns=['ID'])
+feature_distribution(df2, 'Ionosphere')
 
 def visualize_correlation_matrix(df, title):
     corr_matrix = df.corr()
     # Mask to hide upper triangle
     mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
 
-    # Setting up the matplotlib figure
     f, ax = plt.subplots(figsize=(11, 9))
 
-    # Generating a custom diverging colormap
     cmap = sns.diverging_palette(230, 20, as_cmap=True)
 
-    # Draw the heatmap with the mask and correct aspect ratio
+
     sns.heatmap(corr_matrix, mask=mask, cmap=cmap, vmin=-1, vmax=1, center=0,
                 square=True, linewidths=.5, cbar_kws={"shrink": .5},
                 annot=False)  # Annotations are turned off for clarity
@@ -106,44 +100,9 @@ Encode categorical variables
 df1['Diagnosis'] = df1['Diagnosis'].map({'B': 1, 'M': 0})
 df2['Label'] = df2['Label'].map({'g': 1, 'b': 0})
 
-df1.describe()
-
 # select all features except the target
 features_bc = df1.columns[:-1]
 features_io = df2.columns[:-1]
-
-# Then apply the manual standardization as shown before
-for column in features_bc:
-    df1[column] = (df1[column] - df1[column].mean()) / df1[column].std()
-
-for column in features_io:
-    df2[column] = (df2[column] - df2[column].mean()) / df2[column].std()
-
-# Assuming 'feature1' is the feature you're interested in
-feature = features_bc[0]  # This should be adjusted to your feature of interest's actual name
-
-# Plot before standardization
-sns.histplot(df1_original[feature], color="blue", label="Before Standardization", kde=True)
-
-# Plot after standardization
-sns.histplot(df1[feature], color="red", label="After Standardization", kde=True)
-
-plt.legend()
-plt.title(f'Distribution of {feature} Before and After Standardization')
-plt.xlabel(f'{feature} Value')
-plt.ylabel('Frequency')
-plt.show()
-
-# Data for plotting
-data_to_plot = [df1_original[feature], df1[feature]]
-
-# Creating the box plot
-plt.boxplot(data_to_plot, patch_artist=True, labels=['Before', 'After'])
-
-plt.title(f'Box Plot of {feature} Before and After Standardization')
-plt.ylabel(f'{feature} Value')
-plt.xticks([1, 2], ['Before Standardization', 'After Standardization'])
-plt.show()
 
 def normalize_features(df, feature_names):
     for feature in feature_names:
@@ -151,29 +110,144 @@ def normalize_features(df, feature_names):
         max_value = df[feature].max()
         df[feature] = (df[feature] - min_value) / (max_value - min_value)
 
-# Assuming features_bc and features_io are lists of your feature column names
+# Choose a feature for demonstration
+feature = features_bc[5]  # Replace with the actual feature name you are interested in
+
+# Store a copy of the original feature values
+original_feature_values = df1[feature].copy()
+
+# Normalize the feature without altering the original dataframe
+normalized_feature_values = (df1[feature] - df1[feature].min()) / (df1[feature].max() - df1[feature].min())
+
+# Histogram comparison
+plt.figure(figsize=(14, 6))
+
+# Original feature histogram
+plt.subplot(1, 2, 1)
+sns.histplot(original_feature_values, kde=True, color="blue")
+plt.title(f'Distribution of {feature} Before Normalization')
+plt.xlabel(f'{feature} Value')
+plt.ylabel('Frequency')
+
+# Normalized feature histogram
+plt.subplot(1, 2, 2)
+sns.histplot(normalized_feature_values, kde=True, color="green")
+plt.title(f'Distribution of {feature} After Normalization')
+plt.xlabel(f'{feature} Value')
+plt.ylabel('Frequency')
+
+plt.tight_layout()
+plt.show()
+
 normalize_features(df1, features_bc)
-normalize_features(df2, features_io)
+
+df1.describe()
+
+"""# Feature Selection"""
+
+# Compute the correlation matrix
+correlation_matrix1 = df1.corr()
+
+# Isolate the correlations with the label
+label_correlations1 = correlation_matrix1['Diagnosis'].drop('Diagnosis')
+
+# Sort the correlations
+sorted_correlations1 = label_correlations1.sort_values(ascending=False)
+
+print("Sorted correlations:")
+print(sorted_correlations1)
+
+# Select features with correlation greater than 0.5
+top_features = sorted_correlations1[sorted_correlations1 > 0.5].index.tolist()
+
+# Select features with correlation less than -0.5
+bottom_features = sorted_correlations1[sorted_correlations1 < -0.75].index.tolist()
+
+print("Top Features:\n", top_features)
+print("Bottom Features:\n", bottom_features)
+
+
+for feature in top_features:
+    # Square the feature and normalize
+    df1[feature + '_squared'] = df1[feature] ** 2
+    # Normalize the squared feature
+    min_value = df1[feature + '_squared'].min()
+    max_value = df1[feature + '_squared'].max()
+    df1[feature + '_squared'] = (df1[feature + '_squared'] - min_value) / (max_value - min_value)
+
+
+epsilon = 1e-6  # A small constant to prevent division by zero
+
+for feature in bottom_features:
+    # Inverse the feature with epsilon to prevent division by zero or very large values
+    df1[feature + '_inverse'] = 1 / (df1[feature] + epsilon)
+
+    # Normalize the inverse feature
+    min_value = df1[feature + '_inverse'].min()
+    max_value = df1[feature + '_inverse'].max()
+    df1[feature + '_inverse'] = (df1[feature + '_inverse'] - min_value) / (max_value - min_value)
+
+df1.columns
+
+df1.describe()
+
+# Compute the correlation matrix
+correlation_matrix2 = df2.corr()
+
+# Isolate the correlations with the label
+label_correlations2 = correlation_matrix2['Label'].drop('Label')
+
+# Sort the correlations
+sorted_correlations2 = label_correlations2.sort_values(ascending=False)
+
+print("Sorted correlations:")
+print(sorted_correlations2)
+
+# Select features with correlation greater than 0.5
+top_features = sorted_correlations2[sorted_correlations2 > 0.5].index.tolist()
+
+# Select features with correlation less than -0.5
+bottom_features = sorted_correlations2[sorted_correlations2 < -0.5].index.tolist()
+
+print("Top Features:\n", top_features)
+print("Bottom Features:\n", bottom_features)
+
+# Applying the operations for top_features
+for feature in top_features:
+    # Square the feature and normalize
+    df2[feature + '_squared'] = df2[feature] ** 2
+    df2[feature + '_squared'] = (df2[feature + '_squared'] - df2[feature + '_squared'].mean()) / df2[feature + '_squared'].std()
+    min_value = df2[feature + '_squared'].min()
+    max_value = df2[feature + '_squared'].max()
+    df2[feature + '_squared'] = (df2[feature + '_squared'] - min_value) / (max_value - min_value)
+
+# Applying the operations for bottom_features
+for feature in bottom_features:
+    # Inverse the feature and normalize
+    df2[feature + '_inverse'] = 1 / df2[feature]
+    df2[feature + '_inverse'] = (df2[feature + '_inverse'] - df2[feature + '_inverse'].mean()) / df2[feature + '_inverse'].std()
+    min_value = df2[feature + '_inverse'].min()
+    max_value = df2[feature + '_inverse'].max()
+    df2[feature + '_inverse'] = (df2[feature + '_inverse'] - min_value) / (max_value - min_value)
+
+df2.columns
+
+df2.describe()
 
 """# Logistic Regression"""
 
-import numpy as np
+def train_test_split(X, y, test_size=0.2):
 
-def train_test_split(X, y, test_size=0.2, random_state=None):
-    if random_state:
-        np.random.seed(random_state)
+    np.random.seed(42)  # Fixed seed for reproducibility
 
     # Concatenate X and y to shuffle them together
     full_dataset = np.concatenate((X, y.reshape(-1, 1)), axis=1)
     np.random.shuffle(full_dataset)
 
-    # Calculate the number of training examples
     train_size = int(full_dataset.shape[0] * (1 - test_size))
 
-    # Split the dataset
     train, test = full_dataset[:train_size], full_dataset[train_size:]
 
-    # Split back into X and y
     X_train = train[:, :-1]
     y_train = train[:, -1]
     X_test = test[:, :-1]
@@ -181,26 +255,24 @@ def train_test_split(X, y, test_size=0.2, random_state=None):
 
     return X_train, X_test, y_train, y_test
 
-X = df1.drop('Diagnosis', axis=1).values
-y = df1['Diagnosis'].values
-
-# Now you can call the train_test_split function
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-print('X train shape : ', X_train.shape)
-print('Y train shape : ', y_train.shape)
-print('X test shape : ', X_test.shape)
-print('Y test shape : ', y_test.shape)
-
 class LogisticRegression:
-    def __init__(self, learning_rate=0.01, iterations=1000):
+    def __init__(self, learning_rate, iterations=1000):
         self.learning_rate = learning_rate
         self.iterations = iterations
         self.weights = None
         self.bias = None
 
     def _sigmoid(self, z):
+        # Clip values to avoid overflow in the exponential
+        z = np.clip(z, -500, 500)
         return 1 / (1 + np.exp(-z))
+
+    def _compute_loss(self, y, y_hat):
+        m = y.shape[0]
+        # Clip predictions to avoid log(0)
+        y_hat = np.clip(y_hat, 1e-9, 1 - 1e-9)
+        loss = -np.mean(y * np.log(y_hat) + (1 - y) * np.log(1 - y_hat))
+        return loss
 
     def fit(self, X, y):
         n_samples, n_features = X.shape
@@ -208,7 +280,7 @@ class LogisticRegression:
         self.bias = 0
 
         # Gradient Descent
-        for _ in range(self.iterations):
+        for i in range(self.iterations):
             model = np.dot(X, self.weights) + self.bias
             predictions = self._sigmoid(model)
 
@@ -220,87 +292,119 @@ class LogisticRegression:
             self.weights -= self.learning_rate * dw
             self.bias -= self.learning_rate * db
 
+            # Calculate and print the loss every 100 iterations
+            if (i + 1) % 100 == 0:
+                loss = self._compute_loss(y, predictions)
+                print(f"Iteration {i + 1}, Loss: {loss:.4f}")
+
     def predict(self, X):
-        model = np.dot(X, self.weights) + self.bias
-        predictions = self._sigmoid(model)
-        predicted_classes = [1 if i > 0.5 else 0 for i in predictions]
-        return np.array(predicted_classes)
+        linear_model = np.dot(X, self.weights) + self.bias
+        y_predicted = self._sigmoid(linear_model)
+        y_predicted_cls = [1 if i > 0.5 else 0 for i in y_predicted]
+        return np.array(y_predicted_cls)
 
-# Example of instantiating and training the logistic regression model
-model = LogisticRegression(learning_rate=0.01, iterations=1000)
-model.fit(X_train, y_train)
-
-# Making predictions
-predictions = model.predict(X_test)
-
-def Accu_eval(y_true, y_pred):
-    """
-    Calculate the accuracy of the model.
-
-    Parameters:
-    - y_true: numpy.ndarray, the true labels.
-    - y_pred: numpy.ndarray, the predicted labels by the model.
-
-    Returns:
-    - accuracy: float, the accuracy score of the model.
-    """
-    correct_predictions = (y_true == y_pred).sum()
-    total_predictions = len(y_true)
+def accu_eval(predicted_labels, true_labels):
+    correct_predictions = np.sum(predicted_labels == true_labels)
+    total_predictions = len(true_labels)
     accuracy = correct_predictions / total_predictions
     return accuracy
 
-# Assuming y_test are your true labels and predictions are what your model predicted
-accuracy_score = Accu_eval(y_test, predictions)
-print(f"Model Accuracy: {accuracy_score*100:.2f}%")
-
-class KFoldCV:
+class KFoldCrossValidation:
     def __init__(self, model, k=10):
-        self.model = model
         self.k = k
-        self.scores = []
+        self.model = model
 
-    def split(self, X, y):
-        """Yield k equally sized splits of X and y using numpy arrays."""
-        fold_size = len(X) // self.k
-        indices = np.arange(len(X))
-        np.random.shuffle(indices)
-
-        for i in range(self.k):
-            start = i * fold_size
-            end = (i + 1) * fold_size if i != self.k - 1 else len(X)
-            test_indices = indices[start:end]
-            train_indices = np.concatenate([indices[:start], indices[end:]])
-
-            X_train, X_test = X[train_indices], X[test_indices]
-            y_train, y_test = y[train_indices], y[test_indices]
-            yield X_train, X_test, y_train, y_test
-
-    def fit_predict(self, X_train, X_test, y_train, y_test):
-        self.model.fit(X_train, y_train)
-        predictions = self.model.predict(X_test)
-        return predictions
-
-    def evaluate(self, y_true, y_pred):
-        correct_predictions = (y_true == y_pred).sum()
-        total_predictions = len(y_true)
-        return correct_predictions / total_predictions
+    def _create_folds(self, X, y):
+        m = len(y)
+        fold_sizes = np.full(self.k, m // self.k, dtype=int)
+        fold_sizes[:m % self.k] += 1
+        current = 0
+        folds = []
+        for fold_size in fold_sizes:
+            start, stop = current, current + fold_size
+            folds.append((start, stop))
+            current = stop
+        return folds
 
     def cross_validate(self, X, y):
-        for X_train, X_test, y_train, y_test in self.split(X, y):
-            y_pred = self.fit_predict(X_train, X_test, y_train, y_test)
-            score = self.evaluate(y_test, y_pred)
-            self.scores.append(score)
-        return np.mean(self.scores), np.std(self.scores)
+        folds = self._create_folds(X, y)
+        accuracies = []
 
-# Assuming LogisticRegression is your model class
-model = LogisticRegression(learning_rate=0.01, iterations=1000)
+        for start, stop in folds:
+            train_indices = list(range(0, start)) + list(range(stop, len(y)))
+            test_indices = list(range(start, stop))
+
+            X_train, y_train = X[train_indices], y[train_indices]
+            X_test, y_test = X[test_indices], y[test_indices]
+
+            self.model.fit(X_train, y_train)
+            predictions = self.model.predict(X_test)
+            accuracy = accu_eval(predictions, y_test)
+            accuracies.append(accuracy)
+
+        return np.mean(accuracies), accuracies
+
+learning_rates = [0.001, 0.01, 0.1, 1]
+
+model = LogisticRegression(learning_rate=1, iterations=1000)
 
 X = df1.drop('Diagnosis', axis=1).values
 y = df1['Diagnosis'].values
 
-kf_cv = KFoldCV(model, k=10)
-average_score, score_std = kf_cv.cross_validate(X, y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+print("x train shape: ", X_train.shape)
+print("y train shape: ", y_train.shape)
+print("x test shape: ", X_test.shape)
+print("y test shape: ", y_test.shape)
 
-print(f"Average Accuracy: {average_score*100:.2f}%")
-# print(f"Standard Deviation of Accuracy: {score_std*100:.2f}%")
+start_time = time.time()
+
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
+
+end_time = time.time()
+
+runtime = end_time - start_time
+
+accuracy = accu_eval(predictions, y_test)
+print(f"Accuracy of the logistic regression model: {accuracy:.4f}")
+print(f"Training Time: {runtime:.3f} seconds")
+
+cross_validator = KFoldCrossValidation(model, k=10)
+
+mean_accuracy, fold_accuracies = cross_validator.cross_validate(X, y)
+
+print(f"Mean accuracy over {cross_validator.k} folds: {mean_accuracy}")
+print(f"Accuracies over each fold: {fold_accuracies}")
+
+"""second dataset"""
+
+X = df2.drop('Label', axis=1).values
+y = df2['Label'].values
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+print("x train shape: ", X_train.shape)
+print("y train shape: ", y_train.shape)
+print("x test shape: ", X_test.shape)
+print("y test shape: ", y_test.shape)
+
+start_time = time.time()
+
+model.fit(X_train, y_train)
+predictions = model.predict(X_test)
+
+end_time = time.time()
+
+runtime = end_time - start_time
+
+accuracy = accu_eval(predictions, y_test)
+print(f"Accuracy of the logistic regression model: {accuracy:.4f}")
+print(f"Training Time: {runtime:.3f} seconds")
+
+cross_validator = KFoldCrossValidation(model, k=10)
+
+mean_accuracy, fold_accuracies = cross_validator.cross_validate(X, y)
+
+print(f"Mean accuracy over {cross_validator.k} folds: {mean_accuracy}")
+print(f"Accuracies over each fold: {fold_accuracies}")
 
