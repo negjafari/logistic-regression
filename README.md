@@ -1,7 +1,5 @@
 # Logistic Regression Binary Classifier
 
-# Logistic Regression Project
-
 This project implements logistic regression from scratch in python to create a binary classifier using Breast Cancer and Ionosphere datasets. The main objectives of this project are:
 
 - Implement logistic regression to predict the label of unseen data in Breast Cancer and Ionosphere datasets.
